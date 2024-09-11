@@ -39,9 +39,11 @@ app.get("/api/persons", (_, res) => {
 
 app.post("/api/persons", (req, res) => {
   let body = req.body;
-  console.log(body);
   if (!body || !body.name || !body.number)
     return res.status(400).json({ error: "Invalid body" });
+  if (persons.findIndex((person) => person.name === body.name) !== -1) {
+    return res.status(400).json({ error: "Name must be unique" });
+  }
   const newContact = {
     name: body.name,
     number: body.number,
