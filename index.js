@@ -24,16 +24,26 @@ let persons = [
   },
 ];
 
-app.get("/api/persons", (_, res) => {
-  res.json(persons);
-});
-
 app.get("/info", (_, res) => {
   res.send(`
     Phonebook has info for ${persons.length} people
     <br/>
     ${new Date().toString()}
     `);
+});
+
+app.get("/api/persons", (_, res) => {
+  res.json(persons);
+});
+
+app.get("/api/persons/:id", (req, res) => {
+  const id = req.params.id;
+  const record = persons.filter((person) => person.id === id);
+  if (record.length < 1)
+    return res.status(404).json({
+      error: "Missing content",
+    });
+  res.json(record[0]);
 });
 
 const PORT = 3001;
