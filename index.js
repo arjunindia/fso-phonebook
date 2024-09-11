@@ -1,5 +1,6 @@
 import express from "express";
 const app = express();
+app.use(express.json());
 
 let persons = [
   {
@@ -36,14 +37,35 @@ app.get("/api/persons", (_, res) => {
   res.json(persons);
 });
 
+app.post("/api/persons", (req, res) => {
+  let body = req.body;
+  console.log(body);
+  if (!body || !body.name || !body.number)
+    return res.status(400).json({ error: "Invalid body" });
+  const newContact = {
+    name: body.name,
+    number: body.number,
+    id: Math.floor(Math.random() * 10000000),
+  };
+  persons.push(newContact);
+  res.json(newContact);
+});
+
 app.get("/api/persons/:id", (req, res) => {
   const id = req.params.id;
   const record = persons.filter((person) => person.id === id);
   if (record.length < 1)
     return res.status(404).json({
-      error: "Missing content",
+      error: "Record not found",
     });
   res.json(record[0]);
+});
+
+app.delete("/api/persons/:id", (req, res) => {
+  const id = req.params.id;
+  const index = persons.findIndex((person) => person.id === id);
+  if (index === -1) return res.status(404).json({ error: "Record not found" });
+  res.json(persons.splice(index, 1)[0]);
 });
 
 const PORT = 3001;
