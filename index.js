@@ -1,9 +1,11 @@
 import express from "express";
 import morgan from "morgan";
+import cors from "cors";
+
 const app = express();
 app.use(express.json());
-
-morgan.token("body", function (req, res) {
+app.use(cors());
+morgan.token("body", function (req, _) {
   return JSON.stringify(req.body);
 });
 
@@ -79,7 +81,7 @@ app.delete("/api/persons/:id", (req, res) => {
   res.json(persons.splice(index, 1)[0]);
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
