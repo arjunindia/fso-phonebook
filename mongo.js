@@ -10,7 +10,7 @@ const password = process.argv[2];
 const name = process.argv[3];
 const phone = process.argv[4];
 
-const url = `mongodb+srv://phonebookadmin:${password}@cluster0.r0cas.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+const url = process.env.MONGODB_URI;
 
 mongoose.set("strictQuery", false);
 mongoose.connect(url);
