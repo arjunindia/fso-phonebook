@@ -8,6 +8,9 @@
     "dev": "node --inspect --watch --env-file=.env index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "engines": {
+    "node": "16.x"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {
