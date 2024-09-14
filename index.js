@@ -1,3 +1,5 @@
+require("dotenv").config(); // forced to use for glitch's outdated node runtime
+
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
