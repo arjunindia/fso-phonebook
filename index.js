@@ -1,6 +1,7 @@
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
+const mongoose = require("mongoose");
 
 const app = express();
 app.use(express.json());
@@ -13,73 +14,127 @@ app.use(
 );
 app.use(express.static("dist"));
 
-let persons = [
-  {
-    id: "1",
-    name: "Arto Hellas",
-    number: "040-123456",
-  },
-  {
-    id: "2",
-    name: "Ada Lovelace",
-    number: "39-44-5323523",
-  },
-  {
-    id: "3",
-    name: "Dan Abramov",
-    number: "12-43-234345",
-  },
-  {
-    id: "4",
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-  },
-];
+const URL = process.env.MONGODB_URI;
+mongoose.set("strictQuery", false);
+mongoose.connect(URL);
 
-app.get("/info", (_, res) => {
+const personsSchema = new mongoose.Schema({
+  name: { type: String, minLength: 3, required: true },
+  number: {
+    type: String,
+    required: true,
+    minLength: 8,
+    validate: {
+      validator: function (v) {
+        return /^(\d{2}|\d{3})-\d*$/.test(v);
+      },
+      message: (props) => `${props.value} is not a valid phone number!`,
+    },
+  },
+});
+
+personsSchema.set("toJSON", {
+  transform: (_document, returnedObject) => {
+    returnedObject.id = returnedObject._id.toString();
+    delete returnedObject._id;
+    delete returnedObject.__v;
+  },
+});
+
+const Persons = mongoose.model("Persons", personsSchema);
+app.get("/info", async (_, res) => {
   res.send(`
-    Phonebook has info for ${persons.length} people
+    Phonebook has info for ${await Persons.estimatedDocumentCount()} people
     <br/>
     ${new Date().toString()}
     `);
 });
 
 app.get("/api/persons", (_, res) => {
-  res.json(persons);
+  Persons.find().then((persons) => {
+    res.json(persons);
+  });
 });
 
-app.post("/api/persons", (req, res) => {
+app.post("/api/persons", async (req, res, next) => {
   let body = req.body;
   if (!body || !body.name || !body.number)
     return res.status(400).json({ error: "Invalid body" });
-  if (persons.findIndex((person) => person.name === body.name) !== -1) {
+  let p = await Persons.find({ name: body.name });
+  if (p.length > 1) {
+    console.log(p);
     return res.status(400).json({ error: "Name must be unique" });
   }
-  const newContact = {
+  const newContact = new Persons({
     name: body.name,
     number: body.number,
-    id: Math.floor(Math.random() * 10000000),
-  };
-  persons.push(newContact);
-  res.json(newContact);
+  });
+  newContact
+    .save()
+    .then((newContact) => {
+      res.json(newContact);
+    })
+    .catch((e) => next(e));
 });
 
-app.get("/api/persons/:id", (req, res) => {
+app.get("/api/persons/:id", (req, res, next) => {
   const id = req.params.id;
-  const record = persons.filter((person) => person.id === id);
-  if (record.length < 1)
-    return res.status(404).json({
-      error: "Record not found",
-    });
-  res.json(record[0]);
+  Persons.findById(id)
+    .then((person) => {
+      if (person) res.json(person);
+      else
+        res.status(404).json({
+          error: "Record not found",
+        });
+    })
+    .catch((e) => next(e));
 });
 
-app.delete("/api/persons/:id", (req, res) => {
-  const id = req.params.id;
-  const index = persons.findIndex((person) => person.id === id);
-  if (index === -1) return res.status(404).json({ error: "Record not found" });
-  res.json(persons.splice(index, 1)[0]);
+app.put("/api/persons/:id", (req, res, next) => {
+  let body = req.body;
+  if (!body || !body.name || !body.number)
+    return res.status(400).json({ error: "Invalid body" });
+  Persons.findByIdAndUpdate(
+    req.params.id,
+    { number: body.number },
+    { new: true, runValidators: true },
+  )
+    .then((person) => {
+      res.json(person);
+    })
+    .catch((e) => next(e));
 });
+
+app.delete("/api/persons/:id", (req, res, next) => {
+  const id = req.params.id;
+  Persons.findByIdAndDelete(id)
+    .then((person) => {
+      if (!person)
+        return res.status(404).json({
+          error: "Not found!",
+        });
+      res.json(person);
+    })
+    .catch((e) => next(e));
+});
+
+// Handle non declared routes
+const unknownEndpoint = (_req, res) => {
+  res.status(404).send({ error: "unknown endpoint" });
+};
+app.use(unknownEndpoint);
+
+//Error handler middleware
+const errorHandler = (error, _req, res, next) => {
+  console.error(error.message);
+  if (error.name === "CastError") {
+    return res.status(400).send({ error: "malformatted id" });
+  } else if (error.name === "ValidationError") {
+    return res.status(400).json({ error: error.message });
+  }
+  next(error);
+};
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
